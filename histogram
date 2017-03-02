@@ -1,0 +1,19 @@
+#import packages
+import cv2
+import numpy as np
+import pyplot as plt
+import argparse
+
+ap = argparse.ArgumentParser()
+ap.add_argument("-i", "--image", help = "path to the image")
+args = vars(ap.parse_args())
+
+#load image
+img = cv2.imread(args["image"])
+
+#set parameters
+bins = 20;
+
+#calculate hist
+hist = cv2.calcHist([img],[2],None,[bins],[0,256])
+numpy.histogram(hist)
