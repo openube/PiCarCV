@@ -7,5 +7,3 @@ Source Files:
 	1. common.py
 	2. video.py
 	3. tst_scene_render.py
-
-lk_homography still not working and idk what it does
