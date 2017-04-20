@@ -7,3 +7,5 @@ Source Files:
 	1. common.py
 	2. video.py
 	3. tst_scene_render.py
+
+Code refactored from https://github.com/opencv/opencv to work with Raspberry Pi camera.
