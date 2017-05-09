@@ -1,90 +1,123 @@
+#!/usr/bin/env python
+
+'''
+Lucas-Kanade tracker
+====================
+
+Lucas-Kanade sparse optical flow demo. Uses goodFeaturesToTrack
+for track initialization and back-tracking for match verification
+between frames.
+
+Usage
+-----
+lk_track.py
+
+
+Keys
+----
+ESC - exit
+'''
+
+# Python 2/3 compatibility
+from __future__ import print_function
+import time
 import numpy as np
 import cv2
+from common import anorm2, draw_str
+from time import clock
+import video
+import imutils
 from picamera.array import PiRGBArray
 from picamera import PiCamera
-import imutils
-import time
-
-#---------------------------NEXT STEPS-----------------------------
-#
-#1. Currently does not pick up new points
-# --> solution, check new goodfeaturestotrack and compare against known points
-# --> add new points to tracking points
-#2. Throws error 'good_new = p1[st==1] typeError: 'Nonetype' object not subscriptable
-# --> Do all of the points leave screen? Therefore does not exist
-#3. Maybe try better optical flow off of website
-#4. Does not show vectors, just tracks objects
-
 
 # initialize the camera and grab a reference to the raw camera capture
 camera = PiCamera()
-camera.resolution = (640, 480)
-camera.framerate = 30
-rawCapture = PiRGBArray(camera, size=(640, 480))
+camera.resolution = (240, 180)
+camera.framerate = 40
+rawCapture = PiRGBArray(camera, size=(240, 180))
 
-#allow camera to warmup
+# allow the camera to warmup
 time.sleep(0.1)
 
-#cap = VideoCapture('slow.flv')
+lk_params = dict( winSize  = (15, 15),
+                  maxLevel = 2,
+                  criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
-# params for ShiTomasi corner detection
-feature_params = dict( maxCorners = 100,
+feature_params = dict( maxCorners = 500,
                        qualityLevel = 0.3,
                        minDistance = 7,
                        blockSize = 7 )
 
-# Parameters for lucas kanade optical flow
-lk_params = dict( winSize  = (15,15),
-                  maxLevel = 2,
-                  criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+lower _red = np.array([30,150,50])
+upper_red = np.array([255,255,180])
 
-# Create some random colors
-color = np.random.randint(0,255,(100,3))
+class App:
+    def __init__(self, video_src):
+        self.track_len = 10
+        self.detect_interval = 5
+        self.tracks = []
+        self.cam = video.create_capture(video_src)
+        self.frame_idx = 0
 
-#grab image
-camera.capture(rawCapture, format="bgr")
-old_frame = rawCapture.array
+    def run(self):
+        for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+            img = frame.array
+            frame_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+            frame_mask = cv2.inRange(frame_hsv, lower_red, upper_red)
+            vis = img.copy()
 
-# Take first frame and find corners in it
-old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
-p0 = cv2.goodFeaturesToTrack(old_gray, mask = None, **feature_params)
+            if len(self.tracks) > 0:
+                img0, img1 = self.prev_mask, frame_mask
+                p0 = np.float32([tr[-1] for tr in self.tracks]).reshape(-1, 1, 2)
+                p1, st, err = cv2.calcOpticalFlowPyrLK(img0, img1, p0, None, **lk_params)
+                p0r, st, err = cv2.calcOpticalFlowPyrLK(img1, img0, p1, None, **lk_params)
+                d = abs(p0-p0r).reshape(-1, 2).max(-1)
+                good = d < 1
+                new_tracks = []
+                for tr, (x, y), good_flag in zip(self.tracks, p1.reshape(-1, 2), good):
+                    if not good_flag:
+                        continue
+                    tr.append((x, y))
+                    if len(tr) > self.track_len:
+                        del tr[0]
+                    new_tracks.append(tr)
+                    cv2.circle(vis, (x, y), 2, (0, 255, 0), -1)
+                self.tracks = new_tracks
+                cv2.polylines(vis, [np.int32(tr) for tr in self.tracks], False, (0, 255, 0))
+                draw_str(vis, (20, 20), 'track count: %d' % len(self.tracks))
 
-# Create a mask image for drawing purposes
-mask = np.zeros_like(old_frame)
-rawCapture.truncate(0)
+            if self.frame_idx % self.detect_interval == 0:
+                mask = np.zeros_like(frame_mask)
+                mask[:] = 255
+                for x, y in [np.int32(tr[-1]) for tr in self.tracks]:
+                    cv2.circle(mask, (x, y), 5, 0, -1)
+                p = cv2.goodFeaturesToTrack(frame_mask, mask = mask, **feature_params)
 
-for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-    image = frame.array
-    frame_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # calculate optical flow
-    #p0 = cv2.goodFeaturesToTrack(old_gray, mask = None, **feature_params)
-    p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, p0, None, **lk_params)
-    
-    # Select good points
-    good_new = p1[st==1]
-    good_old = p0[st==1]
-    
-    # draw the tracks
-    for i,(new,old) in enumerate(zip(good_new,good_old)):
-        a,b = new.ravel()
-        c,d = old.ravel()
-        mask = cv2.line(mask, (a,b),(c,d), color[i].tolist(), 2)
-        image = cv2.circle(image,(a,b),5,color[i].tolist(),-1)
-    img = cv2.add(image,mask)
+                if p is not None:
+                    for x, y in np.float32(p).reshape(-1, 2):
+                        self.tracks.append([(x, y)])
 
-    #Show frame to screen
-    cv2.imshow('frame',img)
-    key = cv2.waitKey(1) & 0xff
 
-    #if 'q' key pressed, stop loop
-    if key == ord("q"):
-        break
-    
-    # Now update the previous frame and previous points
-    old_gray = frame_gray.copy()
-    p0 = good_new.reshape(-1,1,2)
-    rawCapture.truncate(0)
+            self.frame_idx += 1
+            self.prev_mask = frame_g
+            cv2.imshow('lk_track', vis)
 
-cv2.destroyAllWindows()
-cap.release()
+            ch = cv2.waitKey(1)
+            rawCapture.truncate(0)
+            
+            if ch == 27:
+                break
+
+def main():
+    import sys
+    try:
+        video_src = sys.argv[1]
+    except:
+        video_src = 0
+
+    print(__doc__)
+    App(video_src).run()
+    cv2.destroyAllWindows()
+
+if __name__ == '__main__':
+    main()

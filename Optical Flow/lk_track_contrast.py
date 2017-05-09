@@ -33,13 +33,13 @@ from picamera import PiCamera
 # initialize the camera and grab a reference to the raw camera capture
 camera = PiCamera()
 camera.resolution = (240, 180)
-camera.framerate = 30
-#camera.shutter_speed = 4000000
+camera.framerate = 40
+camera.shutter_speed = 2000
 rawCapture = PiRGBArray(camera, size=(240, 180))
 
 # allow the camera to warmup
-time.sleep(0.1)
-camera.exposure_mode = 'off'
+time.sleep(2)
+#camera.exposure_mode = 'off'
 lk_params = dict( winSize  = (15, 15),
                   maxLevel = 2,
                   criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
@@ -59,8 +59,16 @@ class App:
 
     def run(self):
         for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
+            #Read from camera
             img = frame.array
-            frame_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+            #Convert to grayscale
+            frame_gray_old = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+            #Equalize Histogram
+            frame_gray = cv2.equalizeHist(frame_gray_old)
+
+            
             vis = img.copy()
 
             
@@ -98,7 +106,10 @@ class App:
 
             self.frame_idx += 1
             self.prev_gray = frame_gray
-            cv2.imshow('sharpened', vis)
+            cv2.imshow('lk_track', vis)
+            cv2.imshow('Before Equalization', frame_gray_old)
+            cv2.imshow('After Equalization',frame_gray)
+
             ch = cv2.waitKey(1)
             rawCapture.truncate(0)
             

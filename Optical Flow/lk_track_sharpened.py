@@ -59,17 +59,21 @@ class App:
 
     def run(self):
         for frame in camera.capture_continuous(rawCapture, format="bgr", use_video_port=True):
-            img = frame.array
-            frame_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            vis = img.copy()
-
+            imgTemp = frame.array
+            blur = cv2.GaussianBlur(imgTemp,(0,0),3)
+            sharpened = cv2.addWeighted(imgTemp,1.5,blur,-0.5,0)
+            frame_gray = cv2.cvtColor(sharpened, cv2.COLOR_BGR2GRAY)
+            vis = sharpened.copy()
+            origImg = imgTemp.copy()
+            blurCopy = blur.copy()
             
             if len(self.tracks) > 0:
                 img0, img1 = self.prev_gray, frame_gray
                 p0 = np.float32([tr[-1] for tr in self.tracks]).reshape(-1, 1, 2)
                 p1, st, err = cv2.calcOpticalFlowPyrLK(img0, img1, p0, None, **lk_params)
                 p0r, st, err = cv2.calcOpticalFlowPyrLK(img1, img0, p1, None, **lk_params)
-
+                #print(type(p1))
+                #print("@")
                 d = abs(p0-p0r).reshape(-1, 2).max(-1)
                 good = d < 1
                 new_tracks = []
@@ -91,6 +95,11 @@ class App:
                 for x, y in [np.int32(tr[-1]) for tr in self.tracks]:
                     cv2.circle(mask, (x, y), 5, 0, -1)
                 p = cv2.goodFeaturesToTrack(frame_gray, mask = mask, **feature_params)
+                #print("P length = " + str(p.size))
+                #print("P1")
+                #print(p[0])
+                #print("P2")
+                #print(p[1])
                 if p is not None:
                     for x, y in np.float32(p).reshape(-1, 2):
                         self.tracks.append([(x, y)])
@@ -99,6 +108,8 @@ class App:
             self.frame_idx += 1
             self.prev_gray = frame_gray
             cv2.imshow('sharpened', vis)
+            cv2.imshow('blurred', blurCopy)
+            cv2.imshow('original', origImg)
             ch = cv2.waitKey(1)
             rawCapture.truncate(0)
             
