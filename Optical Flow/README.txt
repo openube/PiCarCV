@@ -8,4 +8,4 @@ Source Files:
 	2. video.py
 	3. tst_scene_render.py
 
-lk_homography still not working and idk what it does
+Code refactored from https://github.com/opencv/opencv to work with Raspberry Pi camera.
