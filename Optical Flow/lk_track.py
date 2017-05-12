@@ -36,6 +36,7 @@ camera.resolution = (240, 180)
 camera.framerate = 30
 #camera.shutter_speed = 4000000
 rawCapture = PiRGBArray(camera, size=(240, 180))
+rawCapture.truncate(0)
 
 # allow the camera to warmup
 time.sleep(0.1)

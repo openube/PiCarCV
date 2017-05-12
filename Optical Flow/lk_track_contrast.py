@@ -33,15 +33,15 @@ from picamera import PiCamera
 # initialize the camera and grab a reference to the raw camera capture
 camera = PiCamera()
 camera.resolution = (240, 180)
-camera.framerate = 40
-camera.shutter_speed = 2000
+camera.framerate = 30
+camera.shutter_speed = 5000
 rawCapture = PiRGBArray(camera, size=(240, 180))
 
 # allow the camera to warmup
 time.sleep(2)
 #camera.exposure_mode = 'off'
-lk_params = dict( winSize  = (15, 15),
-                  maxLevel = 2,
+lk_params = dict( winSize  = (23, 23),
+                  maxLevel = 3,
                   criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
 feature_params = dict( maxCorners = 500,

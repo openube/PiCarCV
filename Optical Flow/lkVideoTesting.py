@@ -32,10 +32,10 @@ from picamera import PiCamera
 
 # initialize the camera and grab a reference to the raw camera capture
 camera = PiCamera()
-camera.resolution = (240, 180)
-camera.framerate = 40
+camera.resolution = (224, 128)
+camera.framerate = 30
 camera.shutter_speed = 5000
-rawCapture = PiRGBArray(camera, size=(240, 180))
+rawCapture = PiRGBArray(camera, size=(200, 120))
 #camera.exposure_mode = 'off'
 
 # allow the camera to warmup
@@ -51,11 +51,11 @@ rawCapture.truncate(0)
 
 #initialize VideoWriter object
 fourcc = cv2.VideoWriter_fourcc('M','J','P','G')
-video1 = cv2.VideoWriter('test.avi',fourcc, 20.0, (width,height))
+video1 = cv2.VideoWriter('TestNoSunlight.avi',fourcc, 20.0, (width,height))
 
 #Set parameters in optical flow
-lk_params = dict( winSize  = (15, 15),
-                  maxLevel = 2,
+lk_params = dict( winSize  = (23, 23),
+                  maxLevel = 3,
                   criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
 
 feature_params = dict( maxCorners = 500,
@@ -81,7 +81,6 @@ class App:
 
             #Equalize Histogram
             frame_gray = cv2.equalizeHist(frame_gray_old)
-            print(frame_gray.shape)
             
             vis = img.copy()
 
@@ -105,7 +104,7 @@ class App:
                     cv2.circle(vis, (x, y), 2, (0, 255, 0), -1)
                 self.tracks = new_tracks
                 cv2.polylines(vis, [np.int32(tr) for tr in self.tracks], False, (0, 255, 0))
-                draw_str(vis, (20, 20), 'track count: %d' % len(self.tracks))
+                draw_str(vis, (20, 20), '%d' % len(self.tracks))
 
             if self.frame_idx % self.detect_interval == 0:
                 mask = np.zeros_like(frame_gray)
@@ -122,13 +121,15 @@ class App:
             self.prev_gray = frame_gray
             
             #Display
-            cv2.imshow('lk_track', vis)
-            cv2.imshow('Before Equalization', frame_gray_old)
-            cv2.imshow('After Equalization',frame_gray)
+#            cv2.imshow('lk_track', vis)
+#            cv2.imshow('Before Equalization', frame_gray_old)
+#            cv2.imshow('After Equalization',frame_gray)
 
             #Write frame to VideoWriter
             video1.write(vis)
-
+            video1.write(vis)
+            #video1.write(vis)
+            
             ch = cv2.waitKey(1)
             rawCapture.truncate(0)
             
